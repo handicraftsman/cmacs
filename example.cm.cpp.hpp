@@ -10,14 +10,7 @@ namespace Example {
 class Main {
 public:
 // Note that you cannot omit names of cpp-used namespaces in argument declarations and other header-side code snippets
-Main(int foo, int bar, const std::string& baz)
-: foo_(foo)
-, bar_(bar)
-, baz_(baz)
-{
-// This is available in implementations
-cout << "Hello, World!" << endl;
-}
+Main (int foo, int bar, const std::string& baz);
 int foo_plus_bar ();
 static int main (int argc, char** argv);
 private:

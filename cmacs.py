@@ -202,6 +202,112 @@ class CMacsPragma:
       'mvirtual': mvirtual,
       'mstatic': mstatic,
     }
+  def readconstructor(self):
+    mode_readnamews = 1
+    mode_readname = 2
+    mode_readargslparenws = 3
+    mode_readargslparen = 4
+    mode_readargs = 5
+    mode_readinitname = 6
+    mode_readinitargs = 7
+    mode_readbodylbracews = 8
+    mode_readbody = 9
+    mode = mode_readnamews
+    mname = ''
+    margs = ''
+    mbody = ''
+    minitname = ''
+    minitargs = ''
+    minit = []
+    SYM_STACK.append(self)
+    try:
+      line = self.file.next()
+      while line != None:
+        idx = 0
+        while idx < len(line):
+          nohandle = False
+          c = line[idx]
+          if mode == mode_readnamews:
+            if not (c == ' ' or c == '\t' or c == '\r' or c == '\n'):
+              mode = mode_readname
+              continue
+          elif mode == mode_readargslparenws:
+            if not (c == ' ' or c == '\t' or c == '\r' or c == '\n'):
+              mode = mode_readargslparen
+              continue
+          elif mode == mode_readbodylbracews:
+            if not (c == ' ' or c == '\t' or c == '\r' or c == '\n'):
+              if c == '{':
+                mode = mode_readbody
+              elif c == ':' or c == ',':
+                mode = mode_readinitname
+              else:
+                raise RuntimeError('Expected whitespace or {, got ' + c)
+          elif mode == mode_readname:
+            if (c == ' ' or c == '\t' or c == '\r' or c == '\n'):
+              if type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
+                mode = mode_readargslparenws
+            elif c == '(':
+              nohandle = True
+              if type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
+                mode = mode_readargs
+            else:
+              mname += c
+          elif mode == mode_readargslparen:
+            nohandle = True
+            if c == '(':
+              mode = mode_readargs
+            else:
+              raise RuntimeError('Expected (, got ' + c)
+          elif mode == mode_readargs:
+            if c == ')' and type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
+              nohandle = True
+              mode = mode_readbodylbracews
+            else:
+              margs += c
+          elif mode == mode_readinitname:
+            #if (c == ' ' or c == '\t' or c == '\r' or c == '\n'):
+            #  if type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
+            #    mode = mode_readinitargs
+            if c == '(':
+              if type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
+                nohandle = True
+                mode = mode_readinitargs
+            else:
+              minitname += c
+          elif mode == mode_readinitargs:
+            if c == ')' and type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
+              nohandle = True
+              mode = mode_readbodylbracews
+              minit.append((minitname + '(' + minitargs + ')').strip())
+              minitname = ''
+              minitargs = ''
+            else:
+              minitargs += c
+          elif mode == mode_readbody:
+            if c == '}' and type(SYM_STACK[len(SYM_STACK)-2]) is type(self):
+              SYM_STACK.pop()
+              nohandle = True
+              line = None
+              break
+            else:
+              mbody += c
+          if not nohandle: self.file.handle_char(c)
+          idx += 1
+        if line != None:
+          line = self.file.next()
+    finally:
+      if not (True in [type(e) is type(self) for e in SYM_STACK]):
+        raise RuntimeError('Invalid stack: no self')
+      while type(SYM_STACK[len(SYM_STACK)-1]) is not type(self):
+        SYM_STACK.pop()
+      SYM_STACK.pop()
+    return {
+      'mname': mname,
+      'margs': margs,
+      'mbody': mbody,
+      'minit': minit,
+    }
 
 pragmas = {}
 
@@ -327,6 +433,26 @@ class CMacsMainPragma(CMacsPragma):
     self.file.cppend.append('int ::main(int argc, char** argv) { return ::' + classes + '::' + method['mname'] + '(argc, argv); }')
 
 pragmas['main'] = lambda file, args: CMacsMainPragma(file)
+
+
+class CMacsConstructorPragma(CMacsPragma):
+  def __init__(self, file):
+    super().__init__(file)
+
+  def execute(self):
+    constructor = self.readconstructor()
+    classes = '::'.join(c.classname for c in CLASS_STACK)
+    self.file.hppbody.append(constructor['mname'] + ' (' + constructor['margs'] + ');\n')
+    self.file.cppbody.append(classes + '::' + constructor['mname'] + ' (' + constructor['margs'] + ')\n')
+    if len(constructor['minit']) >= 1:
+      self.file.cppbody.append(': ' + constructor['minit'][0] + '\n')
+      for minit in constructor['minit'][1:len(constructor['minit'])-1]:
+        self.file.cppbody.append(', ' + minit + '\n')
+    self.file.cppbody.append('{')
+    self.file.cppbody.append(constructor['mbody'])
+    self.file.cppbody.append('}\n')
+
+pragmas['constructor'] = lambda file, args: CMacsConstructorPragma(file)
 
 
 class CMacsFile:
