@@ -477,11 +477,15 @@ pragmas['destructor'] = lambda file, args: CMacsDestructorPragma(file)
 
 
 class CMacsFile:
-  def __init__(self, path):
+  def __init__(self, path, here):
     self.path = path
     self.file = open(path, 'r')
-    self.hpppath = path + '.hpp'
-    self.cpppath = path + '.cpp'
+    if here:
+      self.hpppath = os.path.basename(path) + '.hpp'
+      self.cpppath = os.path.basename(path) + '.cpp'
+    else:
+      self.hpppath = path + '.hpp'
+      self.cpppath = path + '.cpp'
     self.hpp = open(self.hpppath, 'w')
     self.cpp = open(self.cpppath, 'w')
     self.lines = self.file.readlines()
@@ -594,6 +598,7 @@ class CMacsFile:
 parser = argparse.ArgumentParser(description='C++ code preprocessor')
 parser.add_argument('file', metavar='FILE', type=str, help='input file')
 parser.add_argument('--format', action='store_true', help='format with clang-format')
+parser.add_argument('--here', action='store_true', help='put output in the working directory')
 
 
 args = parser.parse_args()
@@ -603,7 +608,7 @@ if not os.path.exists(args.file) and not os.path.isfile(args.file):
   raise RuntimeError("Invalid file")
 
 
-f = CMacsFile(args.file)
+f = CMacsFile(args.file, args.here)
 f.process()
 f.close()
 
