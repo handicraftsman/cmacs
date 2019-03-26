@@ -32,6 +32,11 @@ public:
     cout << "Hello, World!" << endl;
   }
 
+  #pragma cmacs destructor
+  virtual ~Main() {
+    // some code
+  }
+
   #pragma cmacs method
   int foo_plus_bar() {
     return foo_ + bar_;
@@ -39,7 +44,8 @@ public:
 
   #pragma cmacs main
   int main(int argc, char** argv) {
-    cout << foo_plus_bar() << endl;
+    cout << Main(1, 2, "asdf").foo_plus_bar() << endl;
+    return 0;
   }
 
 private:

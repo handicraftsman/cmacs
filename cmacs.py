@@ -96,7 +96,7 @@ class CMacsPragma:
     CLASS_STACK.append(self)
     return self
 
-  def readmethod(self):
+  def readmethod(self, destructor=False):
     mode_readtypews = 0
     mode_readtype = 1
     mode_readnamews = 2
@@ -107,6 +107,8 @@ class CMacsPragma:
     mode_readbodylbracews = 7
     mode_readbody = 8
     mode = mode_readtypews
+    if destructor:
+      mode = mode_readnamews
     mtype = ''
     mname = ''
     margs = ''
@@ -116,6 +118,7 @@ class CMacsPragma:
     SYM_STACK.append(self)
     try:
       line = self.file.next()
+      ls = line.strip()
       while line != None:
         idx = 0
         while idx < len(line):
@@ -126,7 +129,12 @@ class CMacsPragma:
               mode = mode_readtype
               continue
           elif mode == mode_readnamews:
-            if not (c == ' ' or c == '\t' or c == '\r' or c == '\n'):
+            if destructor and ls.startswith('virtual'):
+              line = ls[len('virtual'):len(ls)]
+              ls = line
+              mvirtual = True
+              continue
+            elif not (c == ' ' or c == '\t' or c == '\r' or c == '\n'):
               mode = mode_readname
               continue
           elif mode == mode_readargslparenws:
@@ -266,9 +274,6 @@ class CMacsPragma:
             else:
               margs += c
           elif mode == mode_readinitname:
-            #if (c == ' ' or c == '\t' or c == '\r' or c == '\n'):
-            #  if type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
-            #    mode = mode_readinitargs
             if c == '(':
               if type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
                 nohandle = True
@@ -430,7 +435,7 @@ class CMacsMainPragma(CMacsPragma):
     self.file.cppbody.append(method['mtype'] + ' ' + classes + '::' + method['mname'] + ' (' + method['margs'] + ') {')
     self.file.cppbody.append(method['mbody'])
     self.file.cppbody.append('}\n')
-    self.file.cppend.append('int ::main(int argc, char** argv) { return ::' + classes + '::' + method['mname'] + '(argc, argv); }')
+    self.file.cppend.append('int main(int argc, char** argv) { return ::' + self.file.namespace + '::' + classes + '::' + method['mname'] + '(argc, argv); }')
 
 pragmas['main'] = lambda file, args: CMacsMainPragma(file)
 
@@ -455,12 +460,30 @@ class CMacsConstructorPragma(CMacsPragma):
 pragmas['constructor'] = lambda file, args: CMacsConstructorPragma(file)
 
 
+class CMacsDestructorPragma(CMacsPragma):
+  def __init__(self, file):
+    super().__init__(file)
+
+  def execute(self):
+    method = self.readmethod(True)
+    classes = '::'.join(c.classname for c in CLASS_STACK)
+    v = 'virtual ' if method['mvirtual'] else ''
+    self.file.hppbody.append(v + method['mname'] + ' ();\n')
+    self.file.cppbody.append(classes + '::' + method['mname'] + ' () {\n')
+    self.file.cppbody.append(method['mbody'])
+    self.file.cppbody.append('}\n')
+
+pragmas['destructor'] = lambda file, args: CMacsDestructorPragma(file)
+
+
 class CMacsFile:
   def __init__(self, path):
     self.path = path
     self.file = open(path, 'r')
-    self.hpp = open(path + '.hpp', 'w')
-    self.cpp = open(path + '.cpp', 'w')
+    self.hpppath = path + '.hpp'
+    self.cpppath = path + '.cpp'
+    self.hpp = open(self.hpppath, 'w')
+    self.cpp = open(self.cpppath, 'w')
     self.lines = self.file.readlines()
     self.line = 0
     self.namespace = None
@@ -487,6 +510,8 @@ class CMacsFile:
     self.cpp.writelines(self.cppbody)
     self.cpp.writelines(self.cppend)
     self.file.close()
+    self.hpp.close()
+    self.cpp.close()
 
   def current(self):
     if self.line >= len(self.lines):
@@ -560,9 +585,15 @@ class CMacsFile:
     else:
       print('invalid pragma: ' + pragma + ' ' + str(args))
 
+  def format(self):
+    if os.system('clang-format ' + self.cpppath + ' -i') != 0:
+      raise RuntimeError('Cannot format .cpp file')
+    if os.system('clang-format ' + self.hpppath + ' -i') != 0:
+      raise RuntimeError('Cannot format .hpp file')
 
 parser = argparse.ArgumentParser(description='C++ code preprocessor')
 parser.add_argument('file', metavar='FILE', type=str, help='input file')
+parser.add_argument('--format', action='store_true', help='format with clang-format')
 
 
 args = parser.parse_args()
@@ -575,3 +606,6 @@ if not os.path.exists(args.file) and not os.path.isfile(args.file):
 f = CMacsFile(args.file)
 f.process()
 f.close()
+
+if args.format:
+  f.format()
