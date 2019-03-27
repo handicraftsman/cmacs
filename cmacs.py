@@ -65,6 +65,7 @@ class CMacsPragma:
     pass
   
   def readblock(self):
+    SYM_STACK.append(self)
     line = self.file.next()
     data = []
     if line[0] != '{':
@@ -73,23 +74,33 @@ class CMacsPragma:
     while line != None:
       idx = 0
       while idx < len(line):
+        print()
+        print(SYM_STACK)
         c = line[idx]
-        if c == '}':
-          left = '' if idx == 0 else line[0:idx-1]
-          right = '' if idx >= len(line) - 1 else line[idx+1:len(line)]
-          data.append(left.strip() + '\n')
-          self.file.insert(right.strip() + '\n')
-          line = None
-          break
+        if c == '}' and type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
+            left = '' if idx == 0 else line[0:idx-1]
+            right = '' if idx >= len(line) - 1 else line[idx+1:len(line)]
+            data.append(left.strip() + '\n')
+            self.file.insert(right.strip() + '\n')
+            line = None
+            break
+        else:
+          self.file.handle_char(c)
         idx += 1
+        print(SYM_STACK)
       if line != None:
         data.append(line.strip() + '\n')
         line = self.file.next()
+    if not (True in [type(e) is type(self) for e in SYM_STACK]):
+      raise RuntimeError('Invalid stack: no self')
+    while type(SYM_STACK[len(SYM_STACK)-1]) is not type(self):
+      SYM_STACK.pop()
+    SYM_STACK.pop()
     return data
 
   def readclass(self):
     line = self.file.peek_next().strip()
-    c = re.compile(r'^class (.+?)(?:\s+{?|$)')
+    c = re.compile(r'^(?:class|struct) (.+?)(?:\s+{?|$)')
     m = c.match(line)
     self.classname = m.group(1)
     SYM_STACK.append(self)
@@ -607,10 +618,15 @@ args = parser.parse_args()
 if not os.path.exists(args.file) and not os.path.isfile(args.file):
   raise RuntimeError("Invalid file")
 
-
-f = CMacsFile(args.file, args.here)
-f.process()
-f.close()
+try:
+  f = CMacsFile(args.file, args.here)
+  f.process()
+  f.close()
+except Exception as e:
+  print('asdf')
+  print(CLASS_STACK)
+  print(SYM_STACK)
+  raise e
 
 if args.format:
   f.format()

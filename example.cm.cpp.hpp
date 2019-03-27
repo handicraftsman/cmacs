@@ -1,6 +1,9 @@
 #pragma once
 
 #include <iostream>
+namespace Foo {
+namespace Bar {}
+} // namespace Foo
 
 namespace Example {
 

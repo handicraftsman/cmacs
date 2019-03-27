@@ -1,6 +1,11 @@
 #pragma cmacs includes
 {
   #include <iostream>
+  namespace Foo {
+    namespace Bar {
+      
+    }
+  }
 }
 
 #pragma cmacs namespace Example
