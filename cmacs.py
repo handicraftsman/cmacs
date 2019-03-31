@@ -74,8 +74,6 @@ class CMacsPragma:
     while line != None:
       idx = 0
       while idx < len(line):
-        print()
-        print(SYM_STACK)
         c = line[idx]
         if c == '}' and type(SYM_STACK[len(SYM_STACK)-1]) is type(self):
             left = '' if idx == 0 else line[0:idx-1]
@@ -87,7 +85,6 @@ class CMacsPragma:
         else:
           self.file.handle_char(c)
         idx += 1
-        print(SYM_STACK)
       if line != None:
         data.append(line.strip() + '\n')
         line = self.file.next()
