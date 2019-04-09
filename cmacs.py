@@ -218,6 +218,7 @@ class CMacsPragma:
       'mvirtual': mvirtual,
       'mstatic': mstatic,
     }
+
   def readconstructor(self):
     mode_readnamews = 1
     mode_readname = 2
@@ -257,6 +258,7 @@ class CMacsPragma:
                 mode = mode_readbody
               elif c == ':' or c == ',':
                 mode = mode_readinitname
+                continue
               else:
                 raise RuntimeError('Expected whitespace or {, got ' + c)
           elif mode == mode_readname:
@@ -458,9 +460,9 @@ class CMacsConstructorPragma(CMacsPragma):
     self.file.hppbody.append(constructor['mname'] + ' (' + constructor['margs'] + ');\n')
     self.file.cppbody.append(classes + '::' + constructor['mname'] + ' (' + constructor['margs'] + ')\n')
     if len(constructor['minit']) >= 1:
-      self.file.cppbody.append(': ' + constructor['minit'][0] + '\n')
-      for minit in constructor['minit'][1:len(constructor['minit'])-1]:
-        self.file.cppbody.append(', ' + minit + '\n')
+      self.file.cppbody.append(constructor['minit'][0] + '\n')
+      for minit in constructor['minit'][1:len(constructor['minit'])]:
+        self.file.cppbody.append(minit + '\n')
     self.file.cppbody.append('{')
     self.file.cppbody.append(constructor['mbody'])
     self.file.cppbody.append('}\n')
