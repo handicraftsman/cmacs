@@ -570,7 +570,7 @@ class CMacsFile:
       if SYM_STACK[len(SYM_STACK)-1] != '}':
         raise RuntimeError('Want } following a class, but got ' + str(SYM_STACK[len(SYM_STACK)-1]))  
       SYM_STACK.pop()
-      if type(SYM_STACK[len(SYM_STACK)-1]) is CMacsClassPragma:
+      if len(SYM_STACK) >= 1 and type(SYM_STACK[len(SYM_STACK)-1]) is CMacsClassPragma:
         SYM_STACK.pop()
     elif c == ')' or c == ']':
       if SYM_STACK[len(SYM_STACK)-1] != c:
@@ -622,9 +622,9 @@ try:
   f.process()
   f.close()
 except Exception as e:
-  print('asdf')
   print(CLASS_STACK)
   print(SYM_STACK)
+  f.close()
   raise e
 
 if args.format:
